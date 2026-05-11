@@ -66,6 +66,15 @@ Both calls use `claude-haiku-4-5-20251001` for speed and cost. To improve accura
 - SSE (server-sent events) used for streaming progress from server to client
 - Category filter pills and sort dropdown both call `renderCards()` which re-filters/sorts `allDrinks` in memory — no re-fetching
 
+## Share feature
+- **Share button** appears in the results header (green-tinted, next to "New menu")
+- On click: POSTs `{ drinks, venue }` to `POST /share` → server saves a JSON file in `shares/` → returns a full URL like `http://host/r/a1b2c3d4` → copied to clipboard → "Link copied!" toast shown
+- `GET /r/:id` serves `index.html`; the JS detects the `/r/` path, fetches from `GET /share-data/:id`, and renders results in read-only mode (Share button hidden, "New menu" becomes "Analyze your own" linking back to `/`)
+- Share files stored in `shares/<id>.json` — **do not commit this folder**
+- Links expire after 30 days; expired files are purged on each new share creation
+- Share IDs are 8-char hex strings (`crypto.randomBytes(4).toString('hex')`)
+- Share links use the request host, so they work correctly whether running locally or deployed
+
 ## Known gotcha: Claude wraps JSON in markdown fences
 Haiku sometimes returns ` ```json ... ``` ` instead of plain JSON even when told not to.
 The parser strips fences with: `.replace(/^```[a-z]*\s*/i, '').replace(/\s*```\s*$/,'')`
@@ -80,9 +89,9 @@ Both extraction and research responses need this treatment.
 - "Best bottle to split" recommendation — surface one pick at the top of results
 
 ### Better UX
-- Share results as a link or screenshot-friendly card
 - Side-by-side comparison of two drinks
 - Add a dark mode with white text
+- Screenshot-friendly shareable card (image export)
 
 ### Monetization
 - Somm mode — deeper tasting notes, producer background, terroir info (uses Sonnet, charges more)
