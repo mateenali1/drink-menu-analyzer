@@ -66,6 +66,20 @@ Both calls use `claude-haiku-4-5-20251001` for speed and cost. To improve accura
 - SSE (server-sent events) used for streaming progress from server to client
 - Category filter pills and sort dropdown both call `renderCards()` which re-filters/sorts `allDrinks` in memory — no re-fetching
 
+## Dark mode
+- Toggle button (☾/☀) appears top-right on both the upload screen and results header
+- Sets `data-theme="dark"` or `data-theme="light"` on `<html>`, which overrides the `@media (prefers-color-scheme)` media query via higher-specificity CSS selectors
+- Preference saved to `localStorage` key `theme` and restored on next visit; defaults to system preference if no saved value
+- Tag colors (wine_red, beer, etc.) have explicit `[data-theme="dark"]` and `[data-theme="light"]` overrides in addition to the media query versions
+
+## Category filters
+- Top-level pills: **All · Wine · Sake · Beer · Other** — only categories present in the scanned menu appear
+- All `wine_*` subtypes are grouped under a single **Wine** pill
+- Selecting Wine reveals a second sub-filter row (indented with a left border): **All · Red · White · Rosé · Sparkling** — again only subtypes present in data
+- State: `currentCat` holds the top-level selection; `currentWineType` holds the wine subtype ('all' | 'wine_red' | 'wine_white' | 'wine_rose' | 'wine_sparkling')
+- Switching away from Wine hides the sub-row and resets `currentWineType` to 'all'
+- `getFiltered()` applies both levels; `renderCards()` is the single render path for all filter/sort combinations
+
 ## Share feature
 - **Share button** appears in the results header (green-tinted, next to "New menu")
 - On click: POSTs `{ drinks, venue }` to `POST /share` → server saves a JSON file in `shares/` → returns a full URL like `http://host/r/a1b2c3d4` → copied to clipboard → "Link copied!" toast shown
@@ -90,7 +104,6 @@ Both extraction and research responses need this treatment.
 
 ### Better UX
 - Side-by-side comparison of two drinks
-- Add a dark mode with white text
 - Screenshot-friendly shareable card (image export)
 
 ### Monetization
