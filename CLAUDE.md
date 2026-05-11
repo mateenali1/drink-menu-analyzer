@@ -1,7 +1,7 @@
 # Drink Menu Analyzer — CLAUDE.md
 
 ## What this is
-A Node.js/Express web app that analyzes drink menu photos using the Claude API. Upload a photo, get instant analysis of every drink: ABV, calories, value ranking, food pairings, and alcohol-per-dollar.
+A Node.js/Express web app that analyzes drink menu photos using the Claude API. Focused on beer and wine. Upload a photo, get instant analysis of every drink: ABV, calories, Value Index (0–100), food pairings, and markup vs retail price.
 
 ## How to run
 ```
@@ -26,20 +26,26 @@ No `public/` folder — `index.html` is served from the project root via `expres
 
 **Call 1 — Extraction (vision):** Sends the menu image to Haiku. Returns a JSON object with `venue` (restaurant name or null) and `drinks` (array of every item with name, category, price, region, etc.).
 
-**Call 2 — Research (text):** Sends all drinks in one batch. Returns a JSON array (same index order) with ABV, calories, flavor profile, food pairings, simple comparison, and `base_spirits` (cocktails only).
+**Call 2 — Research (text):** Sends all drinks in one batch. Returns a JSON array (same index order) with ABV, calories, flavor profile, food pairings, simple comparison, and pour_ml (used as fallback if not extracted from menu).
 
 ## Derived calculations (done in server.js, not by Claude)
-- **APD (alcohol per dollar):** `(abv/100 × pour_ml) / pour_price`. Prefers bottle price; falls back to glass price. Field `apd_source` is `'bottle'` or `'glass'`.
+- **APD (internal):** `(abv/100 × pour_ml) / pour_price`. Prefers bottle price; falls back to glass price. Not shown to user — used only to compute Value Index.
+- **Value Index (0–100):** Normalizes APD within broad category (all wine_* + sake = "wine", beer = "beer"). Best value in group = 100, worst = 0. Ranked separately per group so wines don't compete against beers.
 - **Markup:** `bottle_price / retail_price`
 - **Pour price from bottle:** `bottle_price / (750 / pour_ml)`
 
-## Standard pour volumes
+## Pour size
+Extraction prompt asks Claude to read the actual pour size off the menu (e.g. 500ml, 330ml) and store it as `pour_ml`. Server locks in this value and only falls back to Claude's standard if nothing was listed on the menu.
+
+## Standard pour fallbacks
 | Category | ml | oz |
 |---|---|---|
 | Wine / sake | 148 | 5 |
 | Beer | 355 | 12 |
-| Spirits | 44 | 1.5 |
-| Cocktails | 120 | 4 |
+
+## Supported categories
+`wine_red`, `wine_white`, `wine_rose`, `wine_sparkling`, `sake`, `beer`, `other`
+Cocktails and spirits are intentionally excluded. Anything else falls into `other`.
 
 ## Models used
 Both calls use `claude-haiku-4-5-20251001` for speed and cost. To improve accuracy, swap to `claude-sonnet-4-6` — costs ~5–10x more per menu.
