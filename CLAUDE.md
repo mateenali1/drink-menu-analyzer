@@ -17,7 +17,8 @@ drink-menu-analysis/
 ├── server.js      ← Express server + all Claude API calls
 ├── index.html     ← Full frontend (single file — HTML/CSS/JS)
 ├── package.json
-└── .env           ← API key (never commit)
+├── .env           ← API key (never commit)
+└── shares.db      ← local SQLite for share links (auto-created, gitignored)
 ```
 
 No `public/` folder — `index.html` is served from the project root via `express.static(__dirname)`.
@@ -95,12 +96,12 @@ Both calls use `claude-haiku-4-5-20251001` for speed and cost. To improve accura
 - `shares.db` is gitignored; do not commit it
 
 ## Deployment (Railway + Turso)
-1. Sign up at [turso.tech](https://turso.tech), install CLI: `npm install -g @turso/cli`
+1. Sign up at [turso.tech](https://turso.tech) and install the CLI (follow their install guide — method varies by OS)
 2. `turso auth login`
 3. `turso db create menu-analyzer-shares`
 4. `turso db show menu-analyzer-shares --url` → copy the `libsql://` URL
 5. `turso db tokens create menu-analyzer-shares` → copy the token
-6. Deploy repo to Railway; set these env vars in Railway dashboard:
+6. Deploy repo to Railway; set these env vars in the Railway dashboard:
    - `ANTHROPIC_API_KEY`
    - `TURSO_DATABASE_URL`
    - `TURSO_AUTH_TOKEN`
@@ -129,5 +130,6 @@ Both extraction and research responses need this treatment.
 ## Key things to avoid
 - Do not split research into per-drink API calls — the single-batch approach was an intentional optimization
 - Do not add a `public/` folder and move `index.html` there without also updating the static path in `server.js`
-- Do not commit `.env`
+- Do not commit `.env` or `shares.db`
 - Do not lower max_tokens below 16384 for extraction — large menus truncate mid-JSON and fail silently
+- Do not revert share storage back to the filesystem — Railway and most cloud hosts have ephemeral disks that wipe on redeploy
