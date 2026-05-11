@@ -65,6 +65,22 @@ Haiku sometimes returns ` ```json ... ``` ` instead of plain JSON even when told
 The parser strips fences with: `.replace(/^```[a-z]*\s*/i, '').replace(/\s*```\s*$/,'')`
 Both extraction and research responses need this treatment.
 
+## Future features
+
+### Make it more useful per drink
+- "Order this if you like X" — more personalized than the generic simple_comparison field
+
+### Make it more useful for the overall menu
+- "Best bottle to split" recommendation — surface one pick at the top of results
+
+### Better UX
+- Share results as a link or screenshot-friendly card
+- Side-by-side comparison of two drinks
+- Add a dark mode with white text
+
+### Monetization
+- Somm mode — deeper tasting notes, producer background, terroir info (uses Sonnet, charges more)
+
 ## Key things to avoid
 - Do not split research into per-drink API calls — the single-batch approach was an intentional optimization
 - Do not add a `public/` folder and move `index.html` there without also updating the static path in `server.js`

@@ -62,11 +62,12 @@ Each drink object must have:
 - name: full name as written on menu
 - producer: brand/producer name if visible
 - vintage: year if listed, else null
-- category: one of [wine_red, wine_white, wine_rose, wine_sparkling, sake, whisky, bourbon, gin, vodka, rum, tequila, mezcal, beer, cocktail, other]
+- category: one of [wine_red, wine_white, wine_rose, wine_sparkling, sake, beer, other]
 - subcategory: more specific type (e.g. "Junmai Daiginjo", "Single Malt Scotch", "Cabernet Sauvignon", "IPA") or null
 - region: region/country/prefecture if listed, else null
 - glass_price: price per glass in dollars as number, or null
 - bottle_price: price per bottle in dollars as number, or null
+- pour_ml: pour size in ml if explicitly stated on the menu (e.g. 500, 330), or null if not listed
 - notes: any tasting notes or descriptions printed on the menu, or null
 
 Return ONLY a valid JSON object, no markdown, no explanation.`
@@ -125,9 +126,8 @@ Return a JSON array where each element corresponds to the drink at the same inde
 - flavor_profile: 1–2 sentence description of taste, aroma, and texture
 - simple_comparison: 10–15 words starting with "Like a ..." comparing to something most people know
 - food_pairings: array of exactly 4 short food pairing strings (e.g. "Grilled salmon", "Aged cheddar")
-- tag_class: one of: tag-red, tag-white, tag-rose, tag-sparkling, tag-sake, tag-whisky, tag-beer, tag-spirits, tag-other
-- pour_ml: standard pour in ml (148 for wine/sake, 355 for beer, 44 for spirits, 120 for cocktails)
-- base_spirits: for cocktails only, array of base spirit names (e.g. ["Rum", "Triple Sec"]) — null for every other category
+- tag_class: one of: tag-red, tag-white, tag-rose, tag-sparkling, tag-sake, tag-beer, tag-other
+- pour_ml: use the pour_ml already in the drink object if present, otherwise use the standard (148 for wine/sake, 355 for beer)
 
 Return ONLY a valid JSON array, no markdown, no explanation.`
       }]
@@ -144,10 +144,15 @@ Return ONLY a valid JSON array, no markdown, no explanation.`
       }));
     }
 
-    const enriched = drinks.map((drink, i) => ({
-      ...drink,
-      ...(researchData[i] || { abv: null, flavor_profile: 'Information unavailable', food_pairings: [], simple_comparison: null, base_spirits: null })
-    }));
+    const enriched = drinks.map((drink, i) => {
+      const research = researchData[i] || { abv: null, flavor_profile: 'Information unavailable', food_pairings: [], simple_comparison: null };
+      return {
+        ...drink,
+        ...research,
+        // Keep the pour_ml extracted from the menu if present; only fall back to Claude's standard
+        pour_ml: drink.pour_ml || research.pour_ml
+      };
+    });
 
     send('progress', { done: drinks.length, total: drinks.length });
 

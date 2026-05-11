@@ -294,7 +294,7 @@
       <span class="sort-label">Sort</span>
       <select id="sorter">
         <option value="default">Default order</option>
-        <option value="apd_desc">Best value — alcohol per $</option>
+        <option value="apd_desc">Best value — Value Index</option>
         <option value="abv_desc">Highest ABV</option>
         <option value="price_asc">Lowest bottle price</option>
         <option value="cals_asc">Lowest calories</option>
@@ -308,7 +308,7 @@
     <div class="leg"><span class="leg-dot" style="background:#3a8c5e"></span>High value</div>
     <div class="leg"><span class="leg-dot" style="background:#b87333"></span>Mid</div>
     <div class="leg"><span class="leg-dot" style="background:#9e3030"></span>Low value</div>
-    <div style="margin-left:auto;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:0.05em;text-transform:uppercase;color:var(--muted);">ml alc / $1</div>
+    <div style="margin-left:auto;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:0.05em;text-transform:uppercase;color:var(--muted);">Value Index 0–100</div>
   </footer>
 </div>
 
@@ -501,12 +501,44 @@ analyzeBtn.addEventListener('click', async () => {
   }
 });
 
+// ── Value Index ───────────────────────────────────────────────────────────────
+function broadCat(category) {
+  if (!category) return 'other';
+  if (category.startsWith('wine_') || category === 'sake') return 'wine';
+  if (category === 'beer') return 'beer';
+  return 'other';
+}
+
+function computeValueIndex(drinks) {
+  const groups = {};
+  drinks.forEach(d => {
+    const g = broadCat(d.category);
+    if (!groups[g]) groups[g] = [];
+    if (d.apd) groups[g].push(d);
+  });
+
+  const result = {};
+  Object.entries(groups).forEach(([g, list]) => {
+    const apds = list.map(d => d.apd);
+    const min  = Math.min(...apds);
+    const max  = Math.max(...apds);
+    const range = max - min;
+    list.forEach(d => {
+      result[d.name] = {
+        score: range === 0 ? 100 : Math.round(((d.apd - min) / range) * 100),
+        rank:  list.filter(x => x.apd > d.apd).length + 1,
+        total: list.length,
+        group: g
+      };
+    });
+  });
+  return result;
+}
+
 // ── Results rendering ─────────────────────────────────────────────────────────
 function showResults(drinks, venue) {
-  const validAPDs = drinks.filter(d => d.apd).map(d => d.apd);
-  const maxAPD    = validAPDs.length ? Math.max(...validAPDs) : 1;
-
-  allDrinks = drinks.map(d => ({ ...d, _maxAPD: maxAPD }));
+  const valueIndex = computeValueIndex(drinks);
+  allDrinks = drinks.map(d => ({ ...d, _vi: valueIndex[d.name] || null }));
 
   // Save to localStorage
   saveResults(drinks, venue);
@@ -540,12 +572,6 @@ function formatCat(c) {
   return c.replace(/_/g, ' ').replace('wine ', '');
 }
 
-function apdColor(val, max) {
-  const p = val / max;
-  if (p >= 0.70) return '#3a8c5e';
-  if (p >= 0.40) return '#b87333';
-  return '#9e3030';
-}
 
 function markupColor(x) {
   if (x <= 2.0) return '#3a8c5e';
@@ -567,19 +593,10 @@ function getSorted(list) {
   return l;
 }
 
-function rankBadge(d, ranked) {
-  const idx = ranked.findIndex(x => x.name === d.name);
-  if (idx === 0) return '<span class="apd-rank rank-1">Best</span>';
-  if (idx === 1) return '<span class="apd-rank rank-2">2nd</span>';
-  if (idx === 2) return '<span class="apd-rank rank-3">3rd</span>';
-  return `<span class="apd-rank rank-n">#${idx + 1}</span>`;
-}
 
 function renderCards() {
   const filtered  = getFiltered();
   const sorted    = getSorted(filtered);
-  const apdRanked = [...filtered].filter(d => d.apd).sort((a,b) => b.apd - a.apd);
-  const maxAPD    = allDrinks[0]?._maxAPD || 1;
 
   if (!sorted.length) {
     document.getElementById('cards').innerHTML = '<div class="empty">Nothing in this category</div>';
@@ -593,38 +610,32 @@ function renderCards() {
     const meta     = [d.region, d.subcategory].filter(Boolean).join(' · ');
     const POURS    = BOTTLE_ML / (d.pour_ml || 148);
 
-    // APD block — label changes based on source (bottle vs glass price)
+    // Value Index block
     let apdHTML;
-    if (d.apd) {
-      const color      = apdColor(d.apd, maxAPD);
-      const barPct     = Math.round((d.apd / maxAPD) * 100);
-      const rank       = rankBadge(d, apdRanked);
-      const sourceNote = d.apd_source === 'glass' ? 'glass price' : 'bottle price';
+    if (d._vi) {
+      const vi     = d._vi;
+      const color  = vi.score >= 70 ? '#3a8c5e' : vi.score >= 40 ? '#b87333' : '#9e3030';
+      const group  = vi.group === 'wine' ? 'wines' : vi.group === 'beer' ? 'beers' : 'drinks';
       apdHTML = `
         <div class="apd-block" style="background:${color}18;border-color:${color}35;">
           <div class="apd-top">
-            <span class="apd-label">Alcohol per $1 · ${d.pour_ml || 148}ml pour · ${sourceNote}</span>
-            ${rank}
+            <span class="apd-label">Value Index · ranked among ${group}</span>
+            <span class="apd-rank ${vi.rank === 1 ? 'rank-1' : vi.rank === 2 ? 'rank-2' : vi.rank === 3 ? 'rank-3' : 'rank-n'}">#${vi.rank} of ${vi.total}</span>
           </div>
           <div class="apd-main">
-            <span class="apd-number" style="color:${color}">${d.apd.toFixed(2)}</span>
-            <span class="apd-unit-inline">ml / $1</span>
+            <span class="apd-number" style="color:${color}">${vi.score}</span>
+            <span class="apd-unit-inline">/ 100</span>
           </div>
-          <div class="apd-detail">${Math.round((d.abv||0)/100*(d.pour_ml||148))}ml pure alcohol · $${d.pour_price.toFixed(2)} per pour</div>
-          <div class="bar-track"><div class="bar-fill" style="width:${barPct}%;background:${color}"></div></div>
+          <div class="apd-detail">$${d.pour_price.toFixed(2)} per pour · ${Math.round((d.abv||0)/100*(d.pour_ml||148))}ml pure alcohol</div>
         </div>`;
     } else {
       apdHTML = `
         <div class="apd-block" style="opacity:0.4">
-          <div class="apd-label">Alcohol per $1</div>
+          <div class="apd-label">Value Index</div>
           <div class="apd-na">No price on menu</div>
         </div>`;
     }
 
-    // Base spirits row (cocktails only)
-    const spiritsHTML = d.base_spirits?.length
-      ? `<div class="spirits-row"><span class="spirits-label">Base</span><span class="spirits-list">${d.base_spirits.join(' · ')}</span></div>`
-      : '';
 
     const pairingsHTML = d.food_pairings?.length
       ? `<div class="pairings-row">${d.food_pairings.map(p => `<span class="pairing-tag">${p}</span>`).join('')}</div>`
@@ -661,7 +672,6 @@ function renderCards() {
       </div>
 
       ${apdHTML}
-      ${spiritsHTML}
       ${pairingsHTML}
 
       ${d.flavor_profile ? `<div class="flavor">${d.flavor_profile}</div>` : ''}
