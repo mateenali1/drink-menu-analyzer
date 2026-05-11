@@ -155,6 +155,7 @@
 
   .filters { display: flex; gap: 5px; overflow-x: auto; padding-bottom: 3px; scrollbar-width: none; margin-bottom: 0.6rem; }
   .filters::-webkit-scrollbar { display: none; }
+  .wine-filters { padding-left: 1rem; margin-top: -0.3rem; border-left: 2px solid var(--border); }
   .pill {
     flex-shrink: 0; font-family: 'DM Mono', monospace; font-size: 9.5px;
     letter-spacing: 0.06em; text-transform: uppercase;
@@ -342,6 +343,7 @@
     </div>
     <div class="title" id="result-title">drink guide</div>
     <div class="filters" id="filters"></div>
+    <div class="filters wine-filters" id="wine-filters" style="display:none;"></div>
     <div class="sort-row">
       <span class="sort-label">Sort</span>
       <select id="sorter">
@@ -368,10 +370,11 @@
 
 <script>
 // ── State ─────────────────────────────────────────────────────────────────────
-let allDrinks    = [];
-let currentCat   = 'all';
-let currentSort  = 'default';
-let currentVenue = null;
+let allDrinks      = [];
+let currentCat     = 'all';
+let currentWineType = 'all';
+let currentSort    = 'default';
+let currentVenue   = null;
 let selectedFile = null;
 let abortCtrl    = null;
 
@@ -605,20 +608,36 @@ function showResults(drinks, venue) {
   }
   restoreBtn.style.display = 'block';
 
-  // Build category filter pills
-  const cats    = ['all', ...new Set(drinks.map(d => d.category).filter(Boolean))];
+  // Build main filter pills (all wine_* grouped as "Wine")
+  const rawCats = new Set(drinks.map(d => d.category).filter(Boolean));
+  const hasWine = [...rawCats].some(c => c.startsWith('wine_'));
+  const mainCats = ['all'];
+  if (hasWine) mainCats.push('wine');
+  ['sake', 'beer', 'other'].forEach(c => { if (rawCats.has(c)) mainCats.push(c); });
+
   const filterEl = document.getElementById('filters');
-  filterEl.innerHTML = cats.map(c =>
-    `<button class="pill ${c === 'all' ? 'active' : ''}" data-cat="${c}">${c === 'all' ? 'All' : formatCat(c)}</button>`
+  filterEl.innerHTML = mainCats.map(c =>
+    `<button class="pill ${c === 'all' ? 'active' : ''}" data-cat="${c}">${c === 'all' ? 'All' : c === 'wine' ? 'Wine' : formatCat(c)}</button>`
   ).join('');
+
+  // Build wine sub-filter pills (only types present in data)
+  const wineTypes = ['wine_red', 'wine_white', 'wine_rose', 'wine_sparkling'].filter(c => rawCats.has(c));
+  const wineFilterEl = document.getElementById('wine-filters');
+  wineFilterEl.innerHTML = ['all', ...wineTypes].map(c =>
+    `<button class="pill ${c === 'all' ? 'active' : ''}" data-winetype="${c}">${c === 'all' ? 'All' : formatWineCat(c)}</button>`
+  ).join('');
+  wineFilterEl.style.display = 'none';
+
+  currentWineType = 'all';
 
   currentVenue = venue || null;
 
   // Show venue name if we have it
   document.getElementById('result-title').textContent = venue ? venue.toLowerCase() : 'drink guide';
 
-  currentCat  = 'all';
-  currentSort = 'default';
+  currentCat      = 'all';
+  currentWineType = 'all';
+  currentSort     = 'default';
   document.getElementById('sorter').value = 'default';
 
   showScreen('results');
@@ -627,6 +646,10 @@ function showResults(drinks, venue) {
 
 function formatCat(c) {
   return c.replace(/_/g, ' ').replace('wine ', '');
+}
+
+function formatWineCat(c) {
+  return { wine_red: 'Red', wine_white: 'White', wine_rose: 'Rosé', wine_sparkling: 'Sparkling' }[c] || c;
 }
 
 
@@ -638,6 +661,10 @@ function markupColor(x) {
 
 function getFiltered() {
   if (currentCat === 'all') return [...allDrinks];
+  if (currentCat === 'wine') {
+    const wines = allDrinks.filter(d => d.category && d.category.startsWith('wine_'));
+    return currentWineType === 'all' ? wines : wines.filter(d => d.category === currentWineType);
+  }
   return allDrinks.filter(d => d.category === currentCat);
 }
 
@@ -754,9 +781,31 @@ document.getElementById('new-btn').addEventListener('click', () => {
 document.getElementById('filters').addEventListener('click', e => {
   const btn = e.target.closest('.pill');
   if (!btn) return;
-  document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('#filters .pill').forEach(p => p.classList.remove('active'));
   btn.classList.add('active');
   currentCat = btn.dataset.cat;
+
+  const wineFilterEl = document.getElementById('wine-filters');
+  if (currentCat === 'wine') {
+    wineFilterEl.style.display = 'flex';
+  } else {
+    wineFilterEl.style.display = 'none';
+    currentWineType = 'all';
+    const firstWine = wineFilterEl.querySelector('.pill');
+    if (firstWine) {
+      wineFilterEl.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+      firstWine.classList.add('active');
+    }
+  }
+  renderCards();
+});
+
+document.getElementById('wine-filters').addEventListener('click', e => {
+  const btn = e.target.closest('.pill');
+  if (!btn) return;
+  document.querySelectorAll('#wine-filters .pill').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  currentWineType = btn.dataset.winetype;
   renderCards();
 });
 
