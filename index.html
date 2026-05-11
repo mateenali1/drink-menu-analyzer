@@ -204,6 +204,34 @@
     .tag-spirits  { background: #ede8f6; color: #402060; }
   }
 
+  /* Manual theme overrides — take precedence over media query */
+  [data-theme="dark"]  { --ink: #f0ebe0; --paper: #1a1814; --rice: #2a2520; --muted: #9a8e80; --border: rgba(240,235,224,0.12); }
+  [data-theme="light"] { --ink: #1a1410; --paper: #f5f0e8; --rice: #ede7d9; --muted: #8a7e70; --border: rgba(26,20,16,0.1); }
+
+  [data-theme="light"] .tag-red      { background: #f6e8e8; color: #7a2020; }
+  [data-theme="light"] .tag-white    { background: #f6f6e0; color: #5a5a10; }
+  [data-theme="light"] .tag-rose     { background: #f6e8f2; color: #7a2060; }
+  [data-theme="light"] .tag-sparkling{ background: #e0f2f6; color: #107080; }
+  [data-theme="light"] .tag-sake     { background: #e4f0e8; color: #2a5c3e; }
+  [data-theme="light"] .tag-whisky   { background: #f6f0e8; color: #7a4810; }
+  [data-theme="light"] .tag-beer     { background: #f6f2e0; color: #5a4a10; }
+  [data-theme="light"] .tag-spirits  { background: #ede8f6; color: #402060; }
+
+  [data-theme="dark"] .tag-red      { background: #3d1515; color: #e07878; }
+  [data-theme="dark"] .tag-white    { background: #2d2d10; color: #d4d070; }
+  [data-theme="dark"] .tag-rose     { background: #3d1530; color: #e078c0; }
+  [data-theme="dark"] .tag-sparkling{ background: #10303d; color: #70c8e0; }
+  [data-theme="dark"] .tag-sake     { background: #1a2d1a; color: #70c870; }
+  [data-theme="dark"] .tag-whisky   { background: #3d2810; color: #e0a870; }
+  [data-theme="dark"] .tag-beer     { background: #2d2510; color: #d4b860; }
+  [data-theme="dark"] .tag-spirits  { background: #201030; color: #b090e0; }
+
+  .theme-btn {
+    font-family: 'DM Mono', monospace; font-size: 11px;
+    padding: 4px 9px; border-radius: 20px; border: 1px solid var(--border);
+    background: transparent; color: var(--muted); cursor: pointer; line-height: 1;
+  }
+
   .pill-row { display: flex; gap: 8px; margin-bottom: 0.9rem; }
   .info-pill { background: var(--rice); border-radius: 20px; padding: 6px 14px; display: flex; flex-direction: column; align-items: center; flex: 1; }
   .ip-label { font-family: 'DM Mono', monospace; font-size: 7.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 3px; }
@@ -266,7 +294,10 @@
 
 <!-- ── Upload Screen ────────────────────────────────────────────────────────── -->
 <div id="upload-screen">
-  <div class="app-brand">Menu Analyzer</div>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.3rem;">
+    <div class="app-brand">Menu Analyzer</div>
+    <button class="theme-btn" id="theme-btn-upload"></button>
+  </div>
   <div class="app-title">photograph<br>your menu</div>
   <div class="app-sub">Take a photo of any drink menu.<br>Get instant analysis — ABV, value, calories, pairings.</div>
 
@@ -304,6 +335,7 @@
     <div class="header-top">
       <span class="brand" id="result-brand">Menu Analyzer</span>
       <div style="display:flex;gap:6px;align-items:center;">
+        <button class="theme-btn" id="theme-btn-results"></button>
         <button class="share-btn" id="share-btn">Share</button>
         <button class="new-btn" id="new-btn">New menu</button>
       </div>
@@ -732,6 +764,25 @@ document.getElementById('sorter').addEventListener('change', e => {
   currentSort = e.target.value;
   renderCards();
 });
+
+// ── Theme toggle ──────────────────────────────────────────────────────────────
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  localStorage.setItem('theme', theme);
+  const icon = theme === 'dark' ? '☀' : '☾';
+  document.querySelectorAll('.theme-btn').forEach(btn => btn.textContent = icon);
+}
+
+document.querySelectorAll('.theme-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const current = document.documentElement.dataset.theme;
+    applyTheme(current === 'dark' ? 'light' : 'dark');
+  });
+});
+
+// Init: saved preference, else follow system
+const savedTheme = localStorage.getItem('theme');
+applyTheme(savedTheme || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
 
 // ── Share ─────────────────────────────────────────────────────────────────────
 function showToast(msg) {
