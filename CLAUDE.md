@@ -82,12 +82,29 @@ Both calls use `claude-haiku-4-5-20251001` for speed and cost. To improve accura
 
 ## Share feature
 - **Share button** appears in the results header (green-tinted, next to "New menu")
-- On click: POSTs `{ drinks, venue }` to `POST /share` → server saves a JSON file in `shares/` → returns a full URL like `http://host/r/a1b2c3d4` → copied to clipboard → "Link copied!" toast shown
+- On click: POSTs `{ drinks, venue }` to `POST /share` → server saves to SQLite/Turso → returns a full URL like `http://host/r/a1b2c3d4` → copied to clipboard → "Link copied!" toast shown
 - `GET /r/:id` serves `index.html`; the JS detects the `/r/` path, fetches from `GET /share-data/:id`, and renders results in read-only mode (Share button hidden, "New menu" becomes "Analyze your own" linking back to `/`)
-- Share files stored in `shares/<id>.json` — **do not commit this folder**
-- Links expire after 30 days; expired files are purged on each new share creation
+- Links expire after 30 days; expired rows are purged on each new share creation
 - Share IDs are 8-char hex strings (`crypto.randomBytes(4).toString('hex')`)
 - Share links use the request host, so they work correctly whether running locally or deployed
+
+## Share storage — local vs production
+- **Local dev:** uses a local SQLite file (`shares.db`, gitignored) via `@libsql/client` with `file:` URL — no credentials needed
+- **Production (Turso):** set `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` env vars; the same `@libsql/client` package connects to the hosted DB automatically
+- Table is created on server startup (`CREATE TABLE IF NOT EXISTS`) — no manual migration needed
+- `shares.db` is gitignored; do not commit it
+
+## Deployment (Railway + Turso)
+1. Sign up at [turso.tech](https://turso.tech), install CLI: `npm install -g @turso/cli`
+2. `turso auth login`
+3. `turso db create menu-analyzer-shares`
+4. `turso db show menu-analyzer-shares --url` → copy the `libsql://` URL
+5. `turso db tokens create menu-analyzer-shares` → copy the token
+6. Deploy repo to Railway; set these env vars in Railway dashboard:
+   - `ANTHROPIC_API_KEY`
+   - `TURSO_DATABASE_URL`
+   - `TURSO_AUTH_TOKEN`
+7. Railway auto-runs `npm start` — no build step needed
 
 ## Known gotcha: Claude wraps JSON in markdown fences
 Haiku sometimes returns ` ```json ... ``` ` instead of plain JSON even when told not to.

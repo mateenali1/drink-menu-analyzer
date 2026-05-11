@@ -1,14 +1,18 @@
 require('dotenv').config();
-const express   = require('express');
-const multer    = require('multer');
-const Anthropic = require('@anthropic-ai/sdk');
-const path      = require('path');
-const fs        = require('fs');
-const crypto    = require('crypto');
+const express            = require('express');
+const multer             = require('multer');
+const Anthropic          = require('@anthropic-ai/sdk');
+const path               = require('path');
+const crypto             = require('crypto');
+const { createClient }   = require('@libsql/client');
 
-const SHARES_DIR   = path.join(__dirname, 'shares');
 const SHARE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
-if (!fs.existsSync(SHARES_DIR)) fs.mkdirSync(SHARES_DIR);
+
+// Local dev uses a SQLite file; production uses Turso via env vars
+const db = createClient({
+  url:       process.env.TURSO_DATABASE_URL || 'file:shares.db',
+  authToken: process.env.TURSO_AUTH_TOKEN,
+});
 
 const app    = express();
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -204,47 +208,75 @@ Return ONLY a valid JSON array, no markdown, no explanation.`
 });
 
 // ─── Share endpoints ──────────────────────────────────────────────────────────
-app.post('/share', (req, res) => {
+app.post('/share', async (req, res) => {
   const { drinks, venue } = req.body || {};
   if (!Array.isArray(drinks)) return res.status(400).json({ error: 'Invalid data' });
 
-  // Purge expired shares
   try {
-    const now = Date.now();
-    fs.readdirSync(SHARES_DIR).forEach(f => {
-      const fp = path.join(SHARES_DIR, f);
-      try {
-        const { createdAt } = JSON.parse(fs.readFileSync(fp, 'utf8'));
-        if (now - createdAt > SHARE_TTL_MS) fs.unlinkSync(fp);
-      } catch { fs.unlinkSync(fp); }
+    await db.execute({
+      sql:  'DELETE FROM shares WHERE created_at < ?',
+      args: [Date.now() - SHARE_TTL_MS]
     });
-  } catch {}
 
-  const id   = crypto.randomBytes(4).toString('hex');
-  const file = path.join(SHARES_DIR, `${id}.json`);
-  fs.writeFileSync(file, JSON.stringify({ drinks, venue: venue || null, createdAt: Date.now() }));
+    const id = crypto.randomBytes(4).toString('hex');
+    await db.execute({
+      sql:  'INSERT INTO shares (id, data, created_at) VALUES (?, ?, ?)',
+      args: [id, JSON.stringify({ drinks, venue: venue || null }), Date.now()]
+    });
 
-  const base = `${req.protocol}://${req.get('host')}`;
-  res.json({ id, url: `${base}/r/${id}` });
+    const base = `${req.protocol}://${req.get('host')}`;
+    res.json({ id, url: `${base}/r/${id}` });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Could not save share' });
+  }
 });
 
-app.get('/share-data/:id', (req, res) => {
-  const id   = req.params.id.replace(/[^a-f0-9]/gi, '');
-  const file = path.join(SHARES_DIR, `${id}.json`);
-  if (!fs.existsSync(file)) return res.status(404).json({ error: 'Link not found or expired' });
-  const data = JSON.parse(fs.readFileSync(file, 'utf8'));
-  if (Date.now() - data.createdAt > SHARE_TTL_MS) {
-    fs.unlinkSync(file);
-    return res.status(404).json({ error: 'Link not found or expired' });
+app.get('/share-data/:id', async (req, res) => {
+  const id = req.params.id.replace(/[^a-f0-9]/gi, '');
+
+  try {
+    const result = await db.execute({
+      sql:  'SELECT data, created_at FROM shares WHERE id = ?',
+      args: [id]
+    });
+
+    if (!result.rows.length) return res.status(404).json({ error: 'Link not found or expired' });
+
+    const row = result.rows[0];
+    if (Date.now() - Number(row.created_at) > SHARE_TTL_MS) {
+      await db.execute({ sql: 'DELETE FROM shares WHERE id = ?', args: [id] });
+      return res.status(404).json({ error: 'Link not found or expired' });
+    }
+
+    res.json(JSON.parse(row.data));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Could not load share' });
   }
-  res.json(data);
 });
 
 app.get('/r/:id', (_req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
+// ─── Start ────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`\n🍶 Menu Analyzer running at http://localhost:${PORT}\n`);
+
+async function init() {
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS shares (
+      id         TEXT    PRIMARY KEY,
+      data       TEXT    NOT NULL,
+      created_at INTEGER NOT NULL
+    )
+  `);
+  app.listen(PORT, () => {
+    console.log(`\n🍶 Menu Analyzer running at http://localhost:${PORT}\n`);
+  });
+}
+
+init().catch(err => {
+  console.error('Failed to start:', err.message);
+  process.exit(1);
 });
