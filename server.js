@@ -3,6 +3,12 @@ const express   = require('express');
 const multer    = require('multer');
 const Anthropic = require('@anthropic-ai/sdk');
 const path      = require('path');
+const fs        = require('fs');
+const crypto    = require('crypto');
+
+const SHARES_DIR   = path.join(__dirname, 'shares');
+const SHARE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+if (!fs.existsSync(SHARES_DIR)) fs.mkdirSync(SHARES_DIR);
 
 const app    = express();
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -195,6 +201,47 @@ Return ONLY a valid JSON array, no markdown, no explanation.`
   } finally {
     res.end();
   }
+});
+
+// ─── Share endpoints ──────────────────────────────────────────────────────────
+app.post('/share', (req, res) => {
+  const { drinks, venue } = req.body || {};
+  if (!Array.isArray(drinks)) return res.status(400).json({ error: 'Invalid data' });
+
+  // Purge expired shares
+  try {
+    const now = Date.now();
+    fs.readdirSync(SHARES_DIR).forEach(f => {
+      const fp = path.join(SHARES_DIR, f);
+      try {
+        const { createdAt } = JSON.parse(fs.readFileSync(fp, 'utf8'));
+        if (now - createdAt > SHARE_TTL_MS) fs.unlinkSync(fp);
+      } catch { fs.unlinkSync(fp); }
+    });
+  } catch {}
+
+  const id   = crypto.randomBytes(4).toString('hex');
+  const file = path.join(SHARES_DIR, `${id}.json`);
+  fs.writeFileSync(file, JSON.stringify({ drinks, venue: venue || null, createdAt: Date.now() }));
+
+  const base = `${req.protocol}://${req.get('host')}`;
+  res.json({ id, url: `${base}/r/${id}` });
+});
+
+app.get('/share-data/:id', (req, res) => {
+  const id   = req.params.id.replace(/[^a-f0-9]/gi, '');
+  const file = path.join(SHARES_DIR, `${id}.json`);
+  if (!fs.existsSync(file)) return res.status(404).json({ error: 'Link not found or expired' });
+  const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+  if (Date.now() - data.createdAt > SHARE_TTL_MS) {
+    fs.unlinkSync(file);
+    return res.status(404).json({ error: 'Link not found or expired' });
+  }
+  res.json(data);
+});
+
+app.get('/r/:id', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 const PORT = process.env.PORT || 3000;

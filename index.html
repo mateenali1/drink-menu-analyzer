@@ -134,6 +134,23 @@
     padding: 4px 10px; border-radius: 20px; border: 1px solid var(--border);
     background: transparent; color: var(--muted); cursor: pointer;
   }
+  .share-btn {
+    font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 4px 10px; border-radius: 20px; border: 1px solid var(--accent);
+    background: transparent; color: var(--accent); cursor: pointer; transition: opacity 0.15s;
+  }
+  .share-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .share-btn:not(:disabled):active { opacity: 0.6; }
+
+  .toast {
+    position: fixed; bottom: 5.5rem; left: 50%; transform: translateX(-50%);
+    background: var(--ink); color: var(--paper);
+    font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 9px 20px; border-radius: 20px;
+    opacity: 0; transition: opacity 0.2s; pointer-events: none;
+    white-space: nowrap; z-index: 100;
+  }
+  .toast.show { opacity: 1; }
   .title { font-size: 1.9rem; font-weight: 300; font-style: italic; line-height: 1; margin-bottom: 0.9rem; }
 
   .filters { display: flex; gap: 5px; overflow-x: auto; padding-bottom: 3px; scrollbar-width: none; margin-bottom: 0.6rem; }
@@ -286,7 +303,10 @@
   <header>
     <div class="header-top">
       <span class="brand" id="result-brand">Menu Analyzer</span>
-      <button class="new-btn" id="new-btn">New menu</button>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <button class="share-btn" id="share-btn">Share</button>
+        <button class="new-btn" id="new-btn">New menu</button>
+      </div>
     </div>
     <div class="title" id="result-title">drink guide</div>
     <div class="filters" id="filters"></div>
@@ -312,11 +332,14 @@
   </footer>
 </div>
 
+<div class="toast" id="toast"></div>
+
 <script>
 // ── State ─────────────────────────────────────────────────────────────────────
 let allDrinks    = [];
 let currentCat   = 'all';
 let currentSort  = 'default';
+let currentVenue = null;
 let selectedFile = null;
 let abortCtrl    = null;
 
@@ -557,6 +580,8 @@ function showResults(drinks, venue) {
     `<button class="pill ${c === 'all' ? 'active' : ''}" data-cat="${c}">${c === 'all' ? 'All' : formatCat(c)}</button>`
   ).join('');
 
+  currentVenue = venue || null;
+
   // Show venue name if we have it
   document.getElementById('result-title').textContent = venue ? venue.toLowerCase() : 'drink guide';
 
@@ -708,8 +733,63 @@ document.getElementById('sorter').addEventListener('change', e => {
   renderCards();
 });
 
-// Init
-showScreen('upload');
+// ── Share ─────────────────────────────────────────────────────────────────────
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+document.getElementById('share-btn').addEventListener('click', async () => {
+  const btn = document.getElementById('share-btn');
+  btn.textContent = 'Sharing...';
+  btn.disabled = true;
+  try {
+    const payload = {
+      drinks: allDrinks.map(({ _vi, ...rest }) => rest),
+      venue:  currentVenue
+    };
+    const resp = await fetch('/share', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(payload)
+    });
+    const { url, error } = await resp.json();
+    if (error) throw new Error(error);
+    await navigator.clipboard.writeText(url);
+    showToast('Link copied!');
+  } catch (e) {
+    showToast('Could not create link');
+  } finally {
+    btn.textContent = 'Share';
+    btn.disabled    = false;
+  }
+});
+
+// ── Share-mode: load results from URL /r/:id ──────────────────────────────────
+const shareMatch = window.location.pathname.match(/^\/r\/([a-f0-9]{8})$/i);
+if (shareMatch) {
+  showScreen('progress');
+  document.getElementById('progress-status').textContent = 'Loading shared menu...';
+  document.getElementById('progress-bar').style.width = '60%';
+  fetch(`/share-data/${shareMatch[1]}`)
+    .then(r => r.ok ? r.json() : Promise.reject())
+    .then(data => {
+      showResults(data.drinks, data.venue);
+      document.getElementById('share-btn').style.display = 'none';
+      const newBtn = document.getElementById('new-btn');
+      newBtn.textContent = 'Analyze your own';
+      newBtn.onclick = () => { window.location.href = '/'; };
+    })
+    .catch(() => {
+      showScreen('upload');
+      showToast('Link not found or expired');
+    });
+} else {
+  // Init
+  showScreen('upload');
+}
 </script>
 </body>
 </html>
