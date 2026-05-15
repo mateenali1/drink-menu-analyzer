@@ -149,7 +149,7 @@ Return a JSON array where each element corresponds to the drink at the same inde
 - name: the drink name exactly as provided (used for matching)
 - abv: alcohol by volume as a number (e.g. 13.5), use best estimate for the specific producer/style
 - abv_level: "low" if abv < 13, "mid" if 13–16, "high" if > 16
-- retail_price: estimated US retail price for a standard bottle in dollars, or null if unknown
+- retail_price: for wine/sake, estimated US retail price for a standard 750ml bottle in dollars; for beer, estimated retail price for a single unit (typical 6-pack price ÷ 6); or null if unknown
 - calories_per_pour: estimated calories for a standard pour (5oz wine/sake, 12oz beer, 1.5oz spirits, 4oz cocktail), as integer
 - flavor_profile: 1–2 sentence description of taste, aroma, and texture
 - simple_comparison: 10–15 words starting with "Like a ..." comparing to something most people know
@@ -207,6 +207,7 @@ Return ONLY a valid JSON array, no markdown, no explanation.`
       }
 
       if (bottle_price && retail) markup = bottle_price / retail;
+      else if (!bottle_price && glass_price && retail) markup = glass_price / retail;
 
       return { ...d, pour_price, apd, apd_source, markup };
     });

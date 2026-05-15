@@ -761,9 +761,9 @@ function renderCards() {
           <div class="ip-val">${d.abv ? `<span class="abv-dot dot-${abvLevel}"></span>${d.abv}%` : '—'}</div>
         </div>
         <div class="info-pill">
-          <div class="ip-label">Bottle</div>
-          <div class="ip-val">${d.bottle_price ? '$' + d.bottle_price : '—'}</div>
-          ${d.bottle_price ? `<div class="ip-sub">~${POURS.toFixed(1)} pours</div>` : ''}
+          <div class="ip-label">${d.bottle_price ? 'Bottle' : 'Retail'}</div>
+          <div class="ip-val">${d.bottle_price ? '$' + d.bottle_price : d.retail_price ? '$' + d.retail_price : '—'}</div>
+          ${d.bottle_price ? `<div class="ip-sub">~${POURS.toFixed(1)} pours</div>` : d.retail_price ? '<div class="ip-sub">per unit</div>' : ''}
         </div>
         <div class="info-pill">
           <div class="ip-label">Markup</div>
