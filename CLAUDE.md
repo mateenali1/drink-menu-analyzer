@@ -95,17 +95,24 @@ Both calls use `claude-haiku-4-5-20251001` for speed and cost. To improve accura
 - Table is created on server startup (`CREATE TABLE IF NOT EXISTS`) — no manual migration needed
 - `shares.db` is gitignored; do not commit it
 
+## Multi-page upload
+- Up to 10 photos per analysis (e.g. a menu spread across multiple pages)
+- Each image runs through extraction (Step 1) separately in a loop; all drinks are concatenated before the single research call (Step 2)
+- Progress shows "Reading menu (page 1 of 3)..." etc. when more than one image is uploaded
+- Frontend: thumbnail strip replaces the single-image preview. Files are held in `selectedFiles[]`. "Add another page" button triggers the file input; each thumbnail has an ✕ to remove it
+- `upload.array('menu', 10)` on the server; FormData appends each file under the same `'menu'` key
+
+## Research index matching
+- Research results are matched to drinks **by name**, not by array index
+- The research prompt asks Claude to include `"name"` in each response object; server builds a `researchMap` keyed on name
+- This prevents off-by-one mismatches when Claude reorders or skips items in longer menus
+
 ## Deployment (Railway + Turso)
-1. Sign up at [turso.tech](https://turso.tech) and install the CLI (follow their install guide — method varies by OS)
-2. `turso auth login`
-3. `turso db create menu-analyzer-shares`
-4. `turso db show menu-analyzer-shares --url` → copy the `libsql://` URL
-5. `turso db tokens create menu-analyzer-shares` → copy the token
-6. Deploy repo to Railway; set these env vars in the Railway dashboard:
-   - `ANTHROPIC_API_KEY`
-   - `TURSO_DATABASE_URL`
-   - `TURSO_AUTH_TOKEN`
-7. Railway auto-runs `npm start` — no build step needed
+- **Live URL:** drink-menu-analyzer-production.up.railway.app
+- Turso DB: `menu-analyzer-shares` on `aws-us-west-2`
+- Credentials set as Railway env vars: `ANTHROPIC_API_KEY`, `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`
+- Turso CLI install fails on Windows — use the Turso web dashboard to create the DB and generate tokens instead
+- Railway deploys automatically on every push to `master`; no build step needed
 
 ## Known gotcha: Claude wraps JSON in markdown fences
 Haiku sometimes returns ` ```json ... ``` ` instead of plain JSON even when told not to.
