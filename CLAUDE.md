@@ -114,6 +114,15 @@ Both calls use `claude-haiku-4-5-20251001` for speed and cost. To improve accura
 - Turso CLI install fails on Windows — use the Turso web dashboard to create the DB and generate tokens instead
 - Railway deploys automatically on every push to `master`; no build step needed
 
+## Known gotcha: Railway reverse proxy and https
+`app.set('trust proxy', 1)` is required in server.js. Without it, `req.protocol` returns `http` internally even though Railway serves the app over `https`, causing share links to be generated with the wrong protocol.
+
+## Known gotcha: prices without currency symbols
+The extraction prompt explicitly tells Claude to extract the numeric price value regardless of whether a `$` or other currency symbol appears on the menu. Without this, Claude may return `null` for prices on menus that omit the symbol.
+
+## Known gotcha: clipboard API on mobile
+`navigator.clipboard.writeText()` can throw on some mobile browsers. The share button wraps it in a try/catch — on failure it falls back to `prompt('Copy your share link:', url)` so the user can still copy the URL manually.
+
 ## Known gotcha: Claude wraps JSON in markdown fences
 Haiku sometimes returns ` ```json ... ``` ` instead of plain JSON even when told not to.
 The parser strips fences with: `.replace(/^```[a-z]*\s*/i, '').replace(/\s*```\s*$/,'')`
