@@ -26,6 +26,7 @@ const upload = multer({
   }
 });
 
+app.set('trust proxy', 1);
 app.use(express.static(__dirname));
 app.use(express.json());
 
