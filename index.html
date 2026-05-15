@@ -61,16 +61,25 @@
   .upload-primary { font-size: 1.4rem; font-weight: 300; font-style: italic; margin-bottom: 0.5rem; color: var(--ink); }
   .upload-secondary { font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
 
-  .preview-wrap { position: relative; width: 100%; }
-  .preview-img { width: 100%; max-height: 300px; object-fit: contain; border-radius: 8px; display: block; }
-  .preview-clear {
-    position: absolute; top: 8px; right: 8px;
+  .thumbnails-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; justify-content: flex-start; }
+  .thumb-wrap { position: relative; width: 85px; height: 85px; flex-shrink: 0; }
+  .thumb-img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; display: block; }
+  .thumb-remove {
+    position: absolute; top: -6px; right: -6px;
     background: var(--paper); border: 1px solid var(--border);
-    border-radius: 50%; width: 28px; height: 28px;
+    border-radius: 50%; width: 22px; height: 22px;
     display: flex; align-items: center; justify-content: center;
-    font-family: 'DM Mono', monospace; font-size: 12px; color: var(--muted);
-    cursor: pointer; pointer-events: all;
+    font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted);
+    cursor: pointer; line-height: 1;
   }
+  .add-page-btn {
+    width: 100%; padding: 10px;
+    background: transparent; border: 1.5px dashed var(--border); border-radius: 10px;
+    font-family: 'DM Mono', monospace; font-size: 9.5px;
+    letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+    cursor: pointer; transition: border-color 0.2s;
+  }
+  .add-page-btn:active { opacity: 0.6; }
 
   .analyze-btn {
     margin-top: 1.5rem;
@@ -303,15 +312,15 @@
   <div class="app-sub">Take a photo of any drink menu.<br>Get instant analysis — ABV, value, calories, pairings.</div>
 
   <div class="upload-zone" id="upload-zone">
-    <input type="file" id="file-input" accept="image/*" capture="environment">
+    <input type="file" id="file-input" accept="image/*" capture="environment" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;">
     <div id="upload-placeholder">
       <div class="upload-icon">📷</div>
       <div class="upload-primary">tap to photograph</div>
       <div class="upload-secondary">or drag & drop an image</div>
     </div>
-    <div id="preview-container" style="display:none; width:100%; pointer-events:none;">
-      <img id="preview-img" class="preview-img" alt="Menu preview">
-      <button class="preview-clear" id="clear-btn" style="pointer-events:all;">✕</button>
+    <div id="thumbnails-container" style="display:none; width:100%;">
+      <div id="thumbnails-grid" class="thumbnails-grid"></div>
+      <button id="add-page-btn" class="add-page-btn" type="button">+ Add another page</button>
     </div>
   </div>
 
@@ -375,8 +384,8 @@ let currentCat     = 'all';
 let currentWineType = 'all';
 let currentSort    = 'default';
 let currentVenue   = null;
-let selectedFile = null;
-let abortCtrl    = null;
+let selectedFiles = [];
+let abortCtrl     = null;
 
 const BOTTLE_ML  = 750;
 const STORAGE_KEY = 'menuAnalyzer_results';
@@ -386,15 +395,13 @@ const fileInput   = document.getElementById('file-input');
 const uploadZone  = document.getElementById('upload-zone');
 const analyzeBtn  = document.getElementById('analyze-btn');
 const restoreBtn  = document.getElementById('restore-btn');
-const previewCont = document.getElementById('preview-container');
-const previewImg  = document.getElementById('preview-img');
 const placeholder = document.getElementById('upload-placeholder');
-const clearBtn    = document.getElementById('clear-btn');
 const cancelBtn   = document.getElementById('cancel-btn');
 
 fileInput.addEventListener('change', e => {
   const file = e.target.files[0];
-  if (file) setFile(file);
+  if (file) addFile(file);
+  fileInput.value = '';
 });
 
 uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
@@ -402,13 +409,12 @@ uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag
 uploadZone.addEventListener('drop', e => {
   e.preventDefault();
   uploadZone.classList.remove('drag-over');
-  const file = e.dataTransfer.files[0];
-  if (file && file.type.startsWith('image/')) setFile(file);
+  [...e.dataTransfer.files].filter(f => f.type.startsWith('image/')).forEach(addFile);
 });
 
-clearBtn.addEventListener('click', e => {
+document.getElementById('add-page-btn').addEventListener('click', e => {
   e.stopPropagation();
-  clearFile();
+  fileInput.click();
 });
 
 cancelBtn.addEventListener('click', () => {
@@ -416,23 +422,37 @@ cancelBtn.addEventListener('click', () => {
   showScreen('upload');
 });
 
-function setFile(file) {
-  selectedFile = file;
-  const reader = new FileReader();
-  reader.onload = ev => {
-    previewImg.src = ev.target.result;
-    placeholder.style.display = 'none';
-    previewCont.style.display = 'block';
-    analyzeBtn.disabled = false;
-  };
-  reader.readAsDataURL(file);
+function addFile(file) {
+  selectedFiles.push(file);
+  renderThumbnails();
+  analyzeBtn.disabled = false;
 }
 
-function clearFile() {
-  selectedFile = null;
+function removeFile(index) {
+  selectedFiles.splice(index, 1);
+  if (selectedFiles.length === 0) clearFiles();
+  else renderThumbnails();
+}
+
+function renderThumbnails() {
+  const grid = document.getElementById('thumbnails-grid');
+  grid.innerHTML = selectedFiles.map((f, i) => {
+    const url = URL.createObjectURL(f);
+    return `<div class="thumb-wrap">
+      <img class="thumb-img" src="${url}" alt="Page ${i+1}">
+      <button class="thumb-remove" onclick="removeFile(${i})">✕</button>
+    </div>`;
+  }).join('');
+  placeholder.style.display = 'none';
+  fileInput.style.cssText = 'display:none';
+  document.getElementById('thumbnails-container').style.display = 'block';
+}
+
+function clearFiles() {
+  selectedFiles = [];
   fileInput.value = '';
-  previewImg.src = '';
-  previewCont.style.display = 'none';
+  fileInput.style.cssText = 'position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;';
+  document.getElementById('thumbnails-container').style.display = 'none';
   placeholder.style.display = 'flex';
   placeholder.style.flexDirection = 'column';
   placeholder.style.alignItems = 'center';
@@ -472,7 +492,7 @@ restoreBtn.addEventListener('click', () => {
 
 // ── Analysis ──────────────────────────────────────────────────────────────────
 analyzeBtn.addEventListener('click', async () => {
-  if (!selectedFile) return;
+  if (!selectedFiles.length) return;
   showScreen('progress');
 
   const progressBar    = document.getElementById('progress-bar');
@@ -485,7 +505,7 @@ analyzeBtn.addEventListener('click', async () => {
   abortCtrl = new AbortController();
 
   const formData = new FormData();
-  formData.append('menu', selectedFile);
+  selectedFiles.forEach(f => formData.append('menu', f));
 
   try {
     const response = await fetch('/analyze', {
@@ -773,7 +793,7 @@ function showScreen(name) {
 
 // ── Event listeners ───────────────────────────────────────────────────────────
 document.getElementById('new-btn').addEventListener('click', () => {
-  clearFile();
+  clearFiles();
   allDrinks = [];
   showScreen('upload');
 });

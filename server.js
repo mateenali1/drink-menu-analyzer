@@ -30,13 +30,10 @@ app.use(express.static(__dirname));
 app.use(express.json());
 
 // ─── Main analysis endpoint ───────────────────────────────────────────────────
-app.post('/analyze', upload.single('menu'), async (req, res) => {
-  if (!req.file) {
+app.post('/analyze', upload.array('menu', 10), async (req, res) => {
+  if (!req.files || !req.files.length) {
     return res.status(400).json({ error: 'No image uploaded' });
   }
-
-  const imageBase64    = req.file.buffer.toString('base64');
-  const imageMediaType = req.file.mimetype;
 
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -47,22 +44,31 @@ app.post('/analyze', upload.single('menu'), async (req, res) => {
   };
 
   try {
-    send('status', { message: 'Reading menu...' });
+    let drinks = [];
+    let venue  = null;
 
-    // ── Step 1: Extract every drink + venue name from the photo ──────────────
-    const extractionResponse = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 16384,
-      messages: [{
-        role: 'user',
-        content: [
-          {
-            type: 'image',
-            source: { type: 'base64', media_type: imageMediaType, data: imageBase64 }
-          },
-          {
-            type: 'text',
-            text: `You are analyzing a drink menu photo. Extract every drink listed, and identify the restaurant or venue name if visible.
+    // ── Step 1: Extract drinks from each page ─────────────────────────────────
+    for (let pageIdx = 0; pageIdx < req.files.length; pageIdx++) {
+      const file           = req.files[pageIdx];
+      const imageBase64    = file.buffer.toString('base64');
+      const imageMediaType = file.mimetype;
+      const pageLabel      = req.files.length > 1 ? ` (page ${pageIdx + 1} of ${req.files.length})` : '';
+
+      send('status', { message: `Reading menu${pageLabel}...` });
+
+      const extractionResponse = await client.messages.create({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 16384,
+        messages: [{
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: { type: 'base64', media_type: imageMediaType, data: imageBase64 }
+            },
+            {
+              type: 'text',
+              text: `You are analyzing a drink menu photo. Extract every drink listed, and identify the restaurant or venue name if visible.
 
 Return a JSON object with two fields:
 - "venue": the restaurant or bar name as a string, or null if not visible
@@ -81,35 +87,38 @@ Each drink object must have:
 - notes: any tasting notes or descriptions printed on the menu, or null
 
 Return ONLY a valid JSON object, no markdown, no explanation.`
-          }
-        ]
-      }]
-    });
+            }
+          ]
+        }]
+      });
 
-    let venue, drinks;
-    try {
-      const rawDebug = extractionResponse.content[0].text;
-      const raw  = rawDebug.trim().replace(/^```[a-z]*\s*/i, '').replace(/\s*```\s*$/,'');
-      const parsed = JSON.parse(raw);
-      venue  = parsed.venue  || null;
-      drinks = parsed.drinks;
-    } catch (e) {
-      // Fallback: try to find a JSON object or bare array
-      const text = extractionResponse.content[0].text;
-      require('fs').writeFileSync(require('path').join(__dirname, 'debug_response.txt'), `PARSE ERROR: ${e.message}\n\nRAW TEXT:\n${text}`);
-      const objMatch = text.match(/\{[\s\S]*\}/);
-      if (objMatch) {
-        try {
-          const parsed = JSON.parse(objMatch[0]);
-          venue  = parsed.venue  || null;
-          drinks = parsed.drinks;
-        } catch (_) { /* fall through */ }
+      let pageVenue, pageDrinks;
+      try {
+        const rawDebug = extractionResponse.content[0].text;
+        const raw  = rawDebug.trim().replace(/^```[a-z]*\s*/i, '').replace(/\s*```\s*$/,'');
+        const parsed = JSON.parse(raw);
+        pageVenue  = parsed.venue  || null;
+        pageDrinks = parsed.drinks;
+      } catch (e) {
+        const text = extractionResponse.content[0].text;
+        require('fs').writeFileSync(require('path').join(__dirname, 'debug_response.txt'), `PARSE ERROR: ${e.message}\n\nRAW TEXT:\n${text}`);
+        const objMatch = text.match(/\{[\s\S]*\}/);
+        if (objMatch) {
+          try {
+            const parsed = JSON.parse(objMatch[0]);
+            pageVenue  = parsed.venue  || null;
+            pageDrinks = parsed.drinks;
+          } catch (_) { /* fall through */ }
+        }
+        if (!pageDrinks) {
+          const arrMatch = text.match(/\[[\s\S]*\]/);
+          if (arrMatch) { pageDrinks = JSON.parse(arrMatch[0]); pageVenue = null; }
+          else throw new Error(`Could not parse drink list from page ${pageIdx + 1}`);
+        }
       }
-      if (!drinks) {
-        const arrMatch = text.match(/\[[\s\S]*\]/);
-        if (arrMatch) { drinks = JSON.parse(arrMatch[0]); venue = null; }
-        else throw new Error('Could not parse drink list from menu');
-      }
+
+      if (!venue && pageVenue) venue = pageVenue;
+      drinks = drinks.concat(pageDrinks);
     }
 
     send('status', { message: `Found ${drinks.length} drinks. Researching...` });
@@ -129,6 +138,7 @@ Drinks to research:
 ${JSON.stringify(drinks, null, 2)}
 
 Return a JSON array where each element corresponds to the drink at the same index. Each object must have:
+- name: the drink name exactly as provided (used for matching)
 - abv: alcohol by volume as a number (e.g. 13.5), use best estimate for the specific producer/style
 - abv_level: "low" if abv < 13, "mid" if 13–16, "high" if > 16
 - retail_price: estimated US retail price for a standard bottle in dollars, or null if unknown
@@ -143,23 +153,20 @@ Return ONLY a valid JSON array, no markdown, no explanation.`
       }]
     });
 
-    let researchData;
+    let researchMap = {};
     try {
       const raw = researchResponse.content[0].text.trim().replace(/^```[a-z]*\s*/i, '').replace(/\s*```\s*$/,'');
-      researchData = JSON.parse(raw.match(/\[[\s\S]*\]/)[0]);
+      const researchData = JSON.parse(raw.match(/\[[\s\S]*\]/)[0]);
+      researchData.forEach(r => { if (r.name) researchMap[r.name] = r; });
     } catch (e) {
-      researchData = drinks.map(() => ({
-        abv: null, flavor_profile: 'Information unavailable', food_pairings: [],
-        simple_comparison: null, base_spirits: null
-      }));
+      // researchMap stays empty — enriched fallback below handles it
     }
 
-    const enriched = drinks.map((drink, i) => {
-      const research = researchData[i] || { abv: null, flavor_profile: 'Information unavailable', food_pairings: [], simple_comparison: null };
+    const enriched = drinks.map(drink => {
+      const research = researchMap[drink.name] || { abv: null, flavor_profile: 'Information unavailable', food_pairings: [], simple_comparison: null };
       return {
         ...drink,
         ...research,
-        // Keep the pour_ml extracted from the menu if present; only fall back to Claude's standard
         pour_ml: drink.pour_ml || research.pour_ml
       };
     });
