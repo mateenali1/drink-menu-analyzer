@@ -884,7 +884,7 @@ document.getElementById('share-btn').addEventListener('click', async () => {
       prompt('Copy your share link:', url);
     }
   } catch (e) {
-    showToast(e.message || 'Could not create link');
+    showToast('Could not create link');
   } finally {
     btn.textContent = 'Share';
     btn.disabled    = false;
