@@ -114,6 +114,16 @@ Both calls use `claude-haiku-4-5-20251001` for speed and cost. To improve accura
 - Turso CLI install fails on Windows — use the Turso web dashboard to create the DB and generate tokens instead
 - Railway deploys automatically on every push to `master`; no build step needed
 
+## Beer retail price and markup
+- The research prompt asks Claude to return `retail_price` for beer as the single-unit retail cost (typical 6-pack price ÷ 6), not a bottle price
+- Markup for beers is calculated as `glass_price / retail_price` (bar price vs store price) since beers don't have a menu bottle price
+- The "Bottle" pill on beer cards shows "Retail / per unit" instead of being blank
+
+## Price extraction prompt
+- Extraction prompt leads with a bolded IMPORTANT block reminding Claude that prices are often in a column to the right of the drink name — look at the full row
+- Single unlabeled price → `glass_price`; two prices → smaller is glass, larger is bottle; labeled columns → follow headers
+- "null only if truly no price is shown" — pushes Claude harder than "or null if no price listed"
+
 ## Known gotcha: Railway reverse proxy and https
 `app.set('trust proxy', 1)` is required in server.js. Without it, `req.protocol` returns `http` internally even though Railway serves the app over `https`, causing share links to be generated with the wrong protocol.
 
