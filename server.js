@@ -71,6 +71,13 @@ app.post('/analyze', upload.array('menu', 10), async (req, res) => {
               type: 'text',
               text: `You are analyzing a drink menu photo. Extract every drink listed, and identify the restaurant or venue name if visible.
 
+IMPORTANT — reading prices: Prices on menus are often in a column to the right of the drink name, or at the end of a row. Look carefully at the full row for each drink. Always extract every price you can find — do not leave prices as null if a number appears anywhere on that row. Extract the numeric value only (ignore currency symbols like $, ¥, €).
+
+Common price layouts:
+- Single price per drink → put it in glass_price (assume glass/pour unless clearly labeled "bottle" or "btl")
+- Two prices per drink → smaller is glass_price, larger is bottle_price
+- Labeled columns (Glass / Bottle, G / B, etc.) → follow the column headers
+
 Return a JSON object with two fields:
 - "venue": the restaurant or bar name as a string, or null if not visible
 - "drinks": an array of drink objects
@@ -82,9 +89,9 @@ Each drink object must have:
 - category: one of [wine_red, wine_white, wine_rose, wine_sparkling, sake, beer, other]
 - subcategory: more specific type (e.g. "Junmai Daiginjo", "Single Malt Scotch", "Cabernet Sauvignon", "IPA") or null
 - region: region/country/prefecture if listed, else null
-- glass_price: price per glass as a number (extract the numeric value regardless of whether a currency symbol is shown), or null if no price listed
-- bottle_price: price per bottle as a number (extract the numeric value regardless of whether a currency symbol is shown), or null if no price listed
-- pour_ml: pour size in ml if explicitly stated on the menu (e.g. 500, 330), or null if not listed
+- glass_price: price per glass as a number, or null only if truly no price is shown for this drink
+- bottle_price: price per bottle as a number, or null if no bottle price shown
+- pour_ml: pour size in ml if explicitly stated on the menu (e.g. 500ml, 330ml), or null if not listed
 - notes: any tasting notes or descriptions printed on the menu, or null
 
 Return ONLY a valid JSON object, no markdown, no explanation.`
