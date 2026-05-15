@@ -82,8 +82,8 @@ Each drink object must have:
 - category: one of [wine_red, wine_white, wine_rose, wine_sparkling, sake, beer, other]
 - subcategory: more specific type (e.g. "Junmai Daiginjo", "Single Malt Scotch", "Cabernet Sauvignon", "IPA") or null
 - region: region/country/prefecture if listed, else null
-- glass_price: price per glass in dollars as number, or null
-- bottle_price: price per bottle in dollars as number, or null
+- glass_price: price per glass as a number (extract the numeric value regardless of whether a currency symbol is shown), or null if no price listed
+- bottle_price: price per bottle as a number (extract the numeric value regardless of whether a currency symbol is shown), or null if no price listed
 - pour_ml: pour size in ml if explicitly stated on the menu (e.g. 500, 330), or null if not listed
 - notes: any tasting notes or descriptions printed on the menu, or null
 
