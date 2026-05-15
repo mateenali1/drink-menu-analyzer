@@ -877,10 +877,14 @@ document.getElementById('share-btn').addEventListener('click', async () => {
     });
     const { url, error } = await resp.json();
     if (error) throw new Error(error);
-    await navigator.clipboard.writeText(url);
-    showToast('Link copied!');
+    try {
+      await navigator.clipboard.writeText(url);
+      showToast('Link copied!');
+    } catch (_) {
+      prompt('Copy your share link:', url);
+    }
   } catch (e) {
-    showToast('Could not create link');
+    showToast(e.message || 'Could not create link');
   } finally {
     btn.textContent = 'Share';
     btn.disabled    = false;
