@@ -1,7 +1,7 @@
 # Drink Menu Analyzer — CLAUDE.md
 
 ## What this is
-A Node.js/Express web app that analyzes drink menu photos using the Claude API. Focused on beer and wine. Upload a photo, get instant analysis of every drink: ABV, calories, food pairings, and markup vs retail price. Wine/sake cards show a critic score (0–100) and quality tier; beer/other cards show a Value Index (0–100).
+**Ember** — "Find your perfect pour." A Node.js/Express web app that analyzes drink menu photos using the Claude API. Focused on beer and wine. Upload a photo, get instant analysis of every drink: ABV, calories, food pairings, and markup vs retail price. Wine/sake cards show a critic score (0–100) and quality tier; beer/other cards show a Value Index (0–100).
 
 ## How to run
 ```
@@ -169,9 +169,19 @@ Haiku sometimes returns ` ```json ... ``` ` instead of plain JSON even when told
 The parser strips fences with: `.replace(/^```[a-z]*\s*/i, '').replace(/\s*```\s*$/,'')`
 Both extraction and research responses need this treatment.
 
+## App name and branding
+- App name: **Ember**
+- Slogan: **"Find your perfect pour"** — shown under the brand name on the upload screen
+- Displayed in: browser `<title>`, upload screen header, results screen header, OG meta tags
+- Default venue placeholder (when no venue detected): `ember` (lowercase, matches app style)
+- OG title when no venue: `Ember · Find your perfect pour`
+- OG title with venue: `{venue} · Ember`
+- Custom OG image: `Ember.png` in project root (resized to 1200×630 as `og-image.png`)
+- `generate-og.js` exists as a fallback to regenerate a programmatic dark-themed image if needed
+
 ## Share link OG preview card
 - Share links (`/r/:id`) inject Open Graph and Twitter Card meta tags so iMessage, WhatsApp, Twitter, etc. show a rich preview
-- **Image:** `og-image.png` (1200×630) — currently the custom "Ember" photo (`Ember.png` in project root, resized/cropped to fit). To swap: replace `Ember.png` and re-run `node generate-og.js` or re-run the sharp resize one-liner in the commit history
+- **Image:** `og-image.png` (1200×630) — currently the custom "Ember" photo (`Ember.png` in project root, resized/cropped to fit). To swap: replace `Ember.png` and run the sharp resize one-liner: `node -e "require('sharp')('Ember.png').resize(1200,630,{fit:'cover'}).png().toFile('og-image.png',(_,i)=>console.log(i))"`
 - **Title:** `{venue} · drink guide` if venue was detected, otherwise `drink guide`
 - **Description:** `{n} drinks analyzed — ABV, calories, markup vs retail, and critic scores.`
 - `index.html` is cached at server startup; `/r/:id` injects tags before `</head>` and replaces the generic `<title>` tag
