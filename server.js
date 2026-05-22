@@ -4,8 +4,15 @@ const multer             = require('multer');
 const Anthropic          = require('@anthropic-ai/sdk');
 const sharp              = require('sharp');
 const path               = require('path');
+const fs                 = require('fs');
 const crypto             = require('crypto');
 const { createClient }   = require('@libsql/client');
+
+const indexHtml = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
+
+function escapeHtml(str) {
+  return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
 
 const SHARE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
@@ -311,8 +318,43 @@ app.get('/share-data/:id', async (req, res) => {
   }
 });
 
-app.get('/r/:id', (_req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
+app.get('/r/:id', async (req, res) => {
+  const id = req.params.id.replace(/[^a-f0-9]/gi, '');
+
+  let title       = 'drink guide';
+  let description = 'Scan any menu. Know every drink — ABV, calories, markup vs retail, and critic scores.';
+
+  try {
+    const result = await db.execute({
+      sql:  'SELECT data FROM shares WHERE id = ?',
+      args: [id]
+    });
+    if (result.rows.length) {
+      const { drinks, venue } = JSON.parse(result.rows[0].data);
+      if (venue) title = `${venue.toLowerCase()} · drink guide`;
+      const n = drinks.length;
+      description = `${n} drink${n !== 1 ? 's' : ''} analyzed — ABV, calories, markup vs retail, and critic scores.`;
+    }
+  } catch (_) {}
+
+  const base  = `${req.protocol}://${req.get('host')}`;
+  const ogTags = `
+  <meta property="og:title"       content="${escapeHtml(title)}" />
+  <meta property="og:description" content="${escapeHtml(description)}" />
+  <meta property="og:image"       content="${base}/og-image.png" />
+  <meta property="og:url"         content="${base}/r/${id}" />
+  <meta property="og:type"        content="website" />
+  <meta name="twitter:card"        content="summary_large_image" />
+  <meta name="twitter:title"       content="${escapeHtml(title)}" />
+  <meta name="twitter:description" content="${escapeHtml(description)}" />
+  <meta name="twitter:image"       content="${base}/og-image.png" />
+  <title>${escapeHtml(title)}</title>`;
+
+  const html = indexHtml
+    .replace('<title>Menu Analyzer</title>', '')
+    .replace('</head>', `${ogTags}\n</head>`);
+
+  res.type('html').send(html);
 });
 
 // ─── Start ────────────────────────────────────────────────────────────────────
