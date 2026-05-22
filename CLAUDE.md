@@ -108,6 +108,17 @@ Both calls use `claude-haiku-4-5-20251001` for speed and cost. To improve accura
 - Frontend: thumbnail strip replaces the single-image preview. Files are held in `selectedFiles[]`. "Add another page" button triggers the file input; each thumbnail has an ✕ to remove it
 - `upload.array('menu', 10)` on the server; FormData appends each file under the same `'menu'` key
 
+## Category extraction rules
+- The extraction prompt explicitly enforces allowed categories: `wine_red`, `wine_white`, `wine_rose`, `wine_sparkling`, `sake`, `beer`, `other`
+- Beers (ale, lager, stout, IPA, pilsner, etc.) must map to `beer` — the prompt names these explicitly to prevent misclassification as wine
+- Cocktails, spirits, whisky, and non-alcoholic drinks map to `other`
+
+## Research enrichment — explicit field merge
+- The research response is merged using explicit field-by-field assignment, NOT `...research` spread
+- This prevents research response from accidentally overwriting extraction fields like `category`, `name`, `region`, `producer`
+- Only these fields are taken from research: `abv`, `abv_level`, `retail_price`, `calories_per_pour`, `flavor_profile`, `simple_comparison`, `food_pairings`, `tag_class`, `pour_ml`, `critic_score`, `quality_tier`
+- Known gotcha: using `...research` spread caused beers to disappear from the Beer tab when Haiku included an unrequested `category` field in its research response
+
 ## Research index matching
 - Research results are matched to drinks **by name**, not by array index
 - The research prompt asks Claude to include `"name"` in each response object; server builds a `researchMap` keyed on name
