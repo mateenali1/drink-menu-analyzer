@@ -146,8 +146,14 @@ Both calls use `claude-haiku-4-5-20251001` for speed and cost. To improve accura
 - Single unlabeled price → `glass_price`; two prices → smaller is glass, larger is bottle; labeled columns → follow headers
 - "null only if truly no price is shown" — pushes Claude harder than "or null if no price listed"
 
+## Known gotcha: sharp compression on Railway
+`compressForClaude()` is wrapped in try/catch — if sharp fails (wrong native binary, missing libvips), it logs the error and falls back to the original image. The first `send()` SSE event is emitted before compression runs so the browser always gets a proper error message rather than a silent "load failed" connection drop.
+
 ## Known gotcha: Railway reverse proxy and https
 `app.set('trust proxy', 1)` is required in server.js. Without it, `req.protocol` returns `http` internally even though Railway serves the app over `https`, causing share links to be generated with the wrong protocol.
+
+## Known gotcha: prices in light/faint fonts
+The extraction prompt explicitly tells Claude not to skip prices that are styled differently from drink names — e.g. lighter font weight, smaller size, grey color, or italics. Without this, Claude may ignore visually de-emphasized prices entirely.
 
 ## Known gotcha: prices without currency symbols
 The extraction prompt explicitly tells Claude to extract the numeric price value regardless of whether a `$` or other currency symbol appears on the menu. Without this, Claude may return `null` for prices on menus that omit the symbol.
