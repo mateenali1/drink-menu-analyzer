@@ -31,9 +31,14 @@ No `public/` folder — `index.html` is served from the project root via `expres
 
 ## Derived calculations (done in server.js, not by Claude)
 - **APD (internal):** `(abv/100 × pour_ml) / pour_price`. Prefers bottle price; falls back to glass price. Not shown to user — used only to compute Value Index.
-- **Value Index (0–100):** Normalizes APD within broad category (all wine_* + sake = "wine", beer = "beer"). Best value in group = 100, worst = 0. Ranked separately per group so wines don't compete against beers.
-- **Markup:** `bottle_price / retail_price`
+- **Value Index (0–100):** Normalizes APD within broad category (all wine_* + sake = "wine", beer = "beer"). Best value in group = 100, worst = 0. Ranked separately per group so wines don't compete against beers. Only shown on beer/other cards — wines use critic score instead.
+- **Markup:** `bottle_price / retail_price`. Falls back to `glass_price / retail_price` when no bottle price listed.
 - **Pour price from bottle:** `bottle_price / (750 / pour_ml)`
+
+## Wine quality fields (returned by research call, not calculated)
+- **critic_score:** Estimated 0–100 score on the Wine Spectator / Wine Advocate scale, based on producer reputation, region, and vintage. Wine/sake only; null for beer/other.
+- **quality_tier:** One of `Entry`, `Mid`, `Premium`, or `Iconic` based on producer and appellation prestige. Wine/sake only; null for beer/other.
+- Wine/sake cards show a "Critic Score" block (critic_score + quality_tier badge) instead of the Value Index block. Beer/other cards still show Value Index.
 
 ## Pour size
 Extraction prompt asks Claude to read the actual pour size off the menu (e.g. 500ml, 330ml) and store it as `pour_ml`. Server locks in this value and only falls back to Claude's standard if nothing was listed on the menu.
@@ -80,6 +85,7 @@ Both calls use `claude-haiku-4-5-20251001` for speed and cost. To improve accura
 - State: `currentCat` holds the top-level selection; `currentWineType` holds the wine subtype ('all' | 'wine_red' | 'wine_white' | 'wine_rose' | 'wine_sparkling')
 - Switching away from Wine hides the sub-row and resets `currentWineType` to 'all'
 - `getFiltered()` applies both levels; `renderCards()` is the single render path for all filter/sort combinations
+- Clicking the **All** pill resets the sort dropdown to "Default order" (menu order) so drinks appear top-to-bottom as listed on the menu
 
 ## Share feature
 - **Share button** appears in the results header (green-tinted, next to "New menu")
@@ -106,6 +112,11 @@ Both calls use `claude-haiku-4-5-20251001` for speed and cost. To improve accura
 - Research results are matched to drinks **by name**, not by array index
 - The research prompt asks Claude to include `"name"` in each response object; server builds a `researchMap` keyed on name
 - This prevents off-by-one mismatches when Claude reorders or skips items in longer menus
+
+## Price stripping before research call
+- `glass_price` and `bottle_price` are stripped from drink objects before sending to the research call
+- Without this, Claude anchors its `retail_price` estimate on the menu price, producing ~1.0x markup for almost all wines
+- Prices are preserved on the original `drinks` array for the derived calculations after research returns
 
 ## Deployment (Railway + Turso)
 - **Live URL:** drink-menu-analyzer-production.up.railway.app
