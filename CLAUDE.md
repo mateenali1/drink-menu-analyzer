@@ -1,7 +1,7 @@
 # Drink Menu Analyzer — CLAUDE.md
 
 ## What this is
-A Node.js/Express web app that analyzes drink menu photos using the Claude API. Focused on beer and wine. Upload a photo, get instant analysis of every drink: ABV, calories, Value Index (0–100), food pairings, and markup vs retail price.
+A Node.js/Express web app that analyzes drink menu photos using the Claude API. Focused on beer and wine. Upload a photo, get instant analysis of every drink: ABV, calories, food pairings, and markup vs retail price. Wine/sake cards show a critic score (0–100) and quality tier; beer/other cards show a Value Index (0–100).
 
 ## How to run
 ```
@@ -27,7 +27,7 @@ No `public/` folder — `index.html` is served from the project root via `expres
 
 **Call 1 — Extraction (vision):** Sends the menu image to Haiku. Returns a JSON object with `venue` (restaurant name or null) and `drinks` (array of every item with name, category, price, region, etc.).
 
-**Call 2 — Research (text):** Sends all drinks in one batch. Returns a JSON array (same index order) with ABV, calories, flavor profile, food pairings, simple comparison, and pour_ml (used as fallback if not extracted from menu).
+**Call 2 — Research (text):** Sends all drinks in one batch (prices stripped — see Price stripping section). Returns a JSON array with ABV, calories, flavor profile, food pairings, simple comparison, retail_price, pour_ml, and for wine/sake: critic_score and quality_tier.
 
 ## Derived calculations (done in server.js, not by Claude)
 - **APD (internal):** `(abv/100 × pour_ml) / pour_price`. Prefers bottle price; falls back to glass price. Not shown to user — used only to compute Value Index.
