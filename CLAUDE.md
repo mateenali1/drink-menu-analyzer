@@ -152,6 +152,9 @@ Both calls use `claude-haiku-4-5-20251001` for speed and cost. To improve accura
 ## Known gotcha: Railway reverse proxy and https
 `app.set('trust proxy', 1)` is required in server.js. Without it, `req.protocol` returns `http` internally even though Railway serves the app over `https`, causing share links to be generated with the wrong protocol.
 
+## Known gotcha: OCR misreadings of brand names
+Haiku sometimes misreads drink names from photos (e.g. "Michelo Uta" instead of "Michelob Ultra"). The extraction prompt instructs Claude to use its knowledge of known brands to correct obvious misreadings, with a guardrail to preserve unfamiliar names as written.
+
 ## Known gotcha: prices in light/faint fonts
 The extraction prompt explicitly tells Claude not to skip prices that are styled differently from drink names — e.g. lighter font weight, smaller size, grey color, or italics. Without this, Claude may ignore visually de-emphasized prices entirely.
 
