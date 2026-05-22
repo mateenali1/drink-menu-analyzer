@@ -106,7 +106,7 @@ Each drink object must have:
 - name: full name as written on menu
 - producer: brand/producer name if visible
 - vintage: year if listed, else null
-- category: one of [wine_red, wine_white, wine_rose, wine_sparkling, sake, beer, other]
+- category: MUST be exactly one of these values: wine_red, wine_white, wine_rose, wine_sparkling, sake, beer, other. Rules: any beer (ale, lager, stout, IPA, pilsner, etc.) → beer. Cocktails, spirits, whisky, non-alcoholic → other. Do NOT use any other value.
 - subcategory: more specific type (e.g. "Junmai Daiginjo", "Single Malt Scotch", "Cabernet Sauvignon", "IPA") or null
 - region: region/country/prefecture if listed, else null
 - glass_price: price per glass as a number, or null only if truly no price is shown for this drink
@@ -193,11 +193,20 @@ Return ONLY a valid JSON array, no markdown, no explanation.`
     }
 
     const enriched = drinks.map(drink => {
-      const research = researchMap[drink.name] || { abv: null, flavor_profile: 'Information unavailable', food_pairings: [], simple_comparison: null };
+      const r = researchMap[drink.name] || {};
       return {
         ...drink,
-        ...research,
-        pour_ml: drink.pour_ml || research.pour_ml
+        abv:               r.abv               ?? null,
+        abv_level:         r.abv_level         ?? null,
+        retail_price:      r.retail_price      ?? null,
+        calories_per_pour: r.calories_per_pour ?? null,
+        flavor_profile:    r.flavor_profile    ?? 'Information unavailable',
+        simple_comparison: r.simple_comparison ?? null,
+        food_pairings:     r.food_pairings     ?? [],
+        tag_class:         r.tag_class         ?? 'tag-other',
+        pour_ml:           drink.pour_ml       || r.pour_ml,
+        critic_score:      r.critic_score      ?? null,
+        quality_tier:      r.quality_tier      ?? null,
       };
     });
 
