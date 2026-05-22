@@ -169,6 +169,15 @@ Haiku sometimes returns ` ```json ... ``` ` instead of plain JSON even when told
 The parser strips fences with: `.replace(/^```[a-z]*\s*/i, '').replace(/\s*```\s*$/,'')`
 Both extraction and research responses need this treatment.
 
+## Share link OG preview card
+- Share links (`/r/:id`) inject Open Graph and Twitter Card meta tags so iMessage, WhatsApp, Twitter, etc. show a rich preview
+- **Image:** `og-image.png` (1200×630) — currently the custom "Ember" photo (`Ember.png` in project root, resized/cropped to fit). To swap: replace `Ember.png` and re-run `node generate-og.js` or re-run the sharp resize one-liner in the commit history
+- **Title:** `{venue} · drink guide` if venue was detected, otherwise `drink guide`
+- **Description:** `{n} drinks analyzed — ABV, calories, markup vs retail, and critic scores.`
+- `index.html` is cached at server startup; `/r/:id` injects tags before `</head>` and replaces the generic `<title>` tag
+- `escapeHtml()` in server.js sanitizes venue names before inserting into HTML attributes (XSS prevention)
+- `generate-og.js` generates a programmatic dark-themed fallback image if needed — run with `node generate-og.js`
+
 ## Future features
 
 ### Make it more useful per drink
