@@ -321,7 +321,7 @@ app.get('/share-data/:id', async (req, res) => {
 app.get('/r/:id', async (req, res) => {
   const id = req.params.id.replace(/[^a-f0-9]/gi, '');
 
-  let title       = 'drink guide';
+  let title       = 'Ember · Find your perfect pour';
   let description = 'Scan any menu. Know every drink — ABV, calories, markup vs retail, and critic scores.';
 
   try {
@@ -331,7 +331,7 @@ app.get('/r/:id', async (req, res) => {
     });
     if (result.rows.length) {
       const { drinks, venue } = JSON.parse(result.rows[0].data);
-      if (venue) title = `${venue.toLowerCase()} · drink guide`;
+      if (venue) title = `${venue.toLowerCase()} · Ember`;
       const n = drinks.length;
       description = `${n} drink${n !== 1 ? 's' : ''} analyzed — ABV, calories, markup vs retail, and critic scores.`;
     }
@@ -351,7 +351,7 @@ app.get('/r/:id', async (req, res) => {
   <title>${escapeHtml(title)}</title>`;
 
   const html = indexHtml
-    .replace('<title>Menu Analyzer</title>', '')
+    .replace('<title>Ember</title>', '')
     .replace('</head>', `${ogTags}\n</head>`);
 
   res.type('html').send(html);
@@ -369,7 +369,7 @@ async function init() {
     )
   `);
   app.listen(PORT, () => {
-    console.log(`\n🍶 Menu Analyzer running at http://localhost:${PORT}\n`);
+    console.log(`\n🔥 Ember running at http://localhost:${PORT}\n`);
   });
 }
 

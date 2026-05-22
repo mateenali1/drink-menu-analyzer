@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>Menu Analyzer</title>
+<title>Ember</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -305,7 +305,10 @@
 <!-- ── Upload Screen ────────────────────────────────────────────────────────── -->
 <div id="upload-screen">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.3rem;">
-    <div class="app-brand">Menu Analyzer</div>
+    <div>
+      <div class="app-brand">Ember</div>
+      <div style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.08em;color:var(--muted);margin-top:2px;">Find your perfect pour</div>
+    </div>
     <button class="theme-btn" id="theme-btn-upload"></button>
   </div>
   <div class="app-title">photograph<br>your menu</div>
@@ -343,7 +346,7 @@
 <div id="results-screen">
   <header>
     <div class="header-top">
-      <span class="brand" id="result-brand">Menu Analyzer</span>
+      <span class="brand" id="result-brand">Ember</span>
       <div style="display:flex;gap:6px;align-items:center;">
         <button class="theme-btn" id="theme-btn-results"></button>
         <button class="share-btn" id="share-btn">Share</button>
@@ -653,7 +656,7 @@ function showResults(drinks, venue) {
   currentVenue = venue || null;
 
   // Show venue name if we have it
-  document.getElementById('result-title').textContent = venue ? venue.toLowerCase() : 'drink guide';
+  document.getElementById('result-title').textContent = venue ? venue.toLowerCase() : 'ember';
 
   currentCat      = 'all';
   currentWineType = 'all';
