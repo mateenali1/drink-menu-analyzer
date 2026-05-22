@@ -714,9 +714,37 @@ function renderCards() {
     const meta     = [d.region, d.subcategory].filter(Boolean).join(' · ');
     const POURS    = BOTTLE_ML / (d.pour_ml || 148);
 
-    // Value Index block
+    // Quality block — wine/sake gets critic score + tier; beer/other gets Value Index
+    const isWine = d.category && (d.category.startsWith('wine_') || d.category === 'sake');
     let apdHTML;
-    if (d._vi) {
+
+    if (isWine) {
+      const score = d.critic_score;
+      const tier  = d.quality_tier;
+      const tierColor = tier === 'Iconic' ? '#c9a227' : tier === 'Premium' ? '#3a8c5e' : tier === 'Mid' ? '#b87333' : '#888';
+      const scoreColor = score >= 90 ? '#3a8c5e' : score >= 85 ? '#b87333' : '#9e3030';
+      const color = score ? scoreColor : tierColor || '#888';
+      if (score || tier) {
+        apdHTML = `
+          <div class="apd-block" style="background:${color}18;border-color:${color}35;">
+            <div class="apd-top">
+              <span class="apd-label">Critic Score · Wine Spectator scale</span>
+              ${tier ? `<span class="apd-rank rank-n" style="background:${tierColor}22;color:${tierColor};border-color:${tierColor}44">${tier}</span>` : ''}
+            </div>
+            <div class="apd-main">
+              <span class="apd-number" style="color:${color}">${score || '—'}</span>
+              ${score ? '<span class="apd-unit-inline">/ 100</span>' : ''}
+            </div>
+            <div class="apd-detail">Estimated · based on producer &amp; region</div>
+          </div>`;
+      } else {
+        apdHTML = `
+          <div class="apd-block" style="opacity:0.4">
+            <div class="apd-label">Critic Score</div>
+            <div class="apd-na">Not enough info</div>
+          </div>`;
+      }
+    } else if (d._vi) {
       const vi     = d._vi;
       const color  = vi.score >= 70 ? '#3a8c5e' : vi.score >= 40 ? '#b87333' : '#9e3030';
       const group  = vi.group === 'wine' ? 'wines' : vi.group === 'beer' ? 'beers' : 'drinks';
@@ -804,6 +832,11 @@ document.getElementById('filters').addEventListener('click', e => {
   document.querySelectorAll('#filters .pill').forEach(p => p.classList.remove('active'));
   btn.classList.add('active');
   currentCat = btn.dataset.cat;
+
+  if (currentCat === 'all') {
+    currentSort = 'default';
+    document.getElementById('sorter').value = 'default';
+  }
 
   const wineFilterEl = document.getElementById('wine-filters');
   if (currentCat === 'wine') {

@@ -143,7 +143,7 @@ Return ONLY a valid JSON object, no markdown, no explanation.`
         content: `Research these drinks and return a JSON array. Use your training knowledge — do not say you cannot look things up.
 
 Drinks to research:
-${JSON.stringify(drinks, null, 2)}
+${JSON.stringify(drinks.map(({ glass_price, bottle_price, ...rest }) => rest), null, 2)}
 
 Return a JSON array where each element corresponds to the drink at the same index. Each object must have:
 - name: the drink name exactly as provided (used for matching)
@@ -156,6 +156,8 @@ Return a JSON array where each element corresponds to the drink at the same inde
 - food_pairings: array of exactly 4 short food pairing strings (e.g. "Grilled salmon", "Aged cheddar")
 - tag_class: one of: tag-red, tag-white, tag-rose, tag-sparkling, tag-sake, tag-beer, tag-other
 - pour_ml: use the pour_ml already in the drink object if present, otherwise use the standard (148 for wine/sake, 355 for beer)
+- critic_score: for wine and sake only, estimated score on the 0–100 Wine Spectator / Wine Advocate scale based on producer reputation, region, and vintage; null for beer and other
+- quality_tier: for wine and sake only, one of "Entry" (bulk or generic producer), "Mid" (solid regional wine, decent producer), "Premium" (respected producer or appellation), or "Iconic" (world-class producer, grand cru, or trophy wine); null for beer and other
 
 Return ONLY a valid JSON array, no markdown, no explanation.`
       }]
