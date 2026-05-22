@@ -97,6 +97,8 @@ app.post('/analyze', upload.array('menu', 10), async (req, res) => {
               type: 'text',
               text: `You are analyzing a drink menu photo. Extract every drink listed, and identify the restaurant or venue name if visible.
 
+IMPORTANT — drink names: Use your knowledge of known beer, wine, and spirits brands to correct obvious OCR misreadings. If an extracted name closely resembles a well-known brand (e.g. "Michelo Uta" → "Michelob Ultra", "Stella Artoi" → "Stella Artois"), use the correct spelling. Only correct names you are confident about — preserve unusual or unfamiliar names as written.
+
 IMPORTANT — reading prices: Prices on menus are often in a column to the right of the drink name, or at the end of a row. Look carefully at the full row for each drink. Always extract every price you can find — do not leave prices as null if a number appears anywhere on that row. Extract the numeric value only (ignore currency symbols like $, ¥, €). Prices are often styled differently from drink names — they may be in a lighter font weight, smaller size, grey color, or italics. Do not skip a price just because it looks visually subtle or faint.
 
 Common price layouts:
