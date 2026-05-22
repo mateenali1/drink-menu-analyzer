@@ -164,6 +164,13 @@ Both extraction and research responses need this treatment.
 ### Monetization
 - Somm mode — deeper tasting notes, producer background, terroir info (uses Sonnet, charges more)
 
+## Image compression
+- Claude API rejects base64 images over 5 MB (`5,242,880 bytes`)
+- `compressForClaude(buffer)` in server.js auto-compresses any image that exceeds ~3.75 MB raw (the raw size that encodes to 5 MB base64)
+- Uses `sharp`: resizes to max 2048×2048 (preserving aspect ratio) and recompresses as JPEG starting at 85% quality, stepping down by 15% each pass until under the limit
+- Converts all compressed images to `image/jpeg` regardless of original format
+- Images already under the limit pass through untouched
+
 ## Key things to avoid
 - Do not split research into per-drink API calls — the single-batch approach was an intentional optimization
 - Do not add a `public/` folder and move `index.html` there without also updating the static path in `server.js`
