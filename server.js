@@ -2,6 +2,7 @@ require('dotenv').config();
 const express            = require('express');
 const multer             = require('multer');
 const Anthropic          = require('@anthropic-ai/sdk');
+const sharp              = require('sharp');
 const path               = require('path');
 const crypto             = require('crypto');
 const { createClient }   = require('@libsql/client');
@@ -30,6 +31,24 @@ app.set('trust proxy', 1);
 app.use(express.static(__dirname));
 app.use(express.json());
 
+// Claude API base64 limit is 5 MB. Compress images that exceed it.
+const MAX_BASE64_BYTES = 5 * 1024 * 1024;
+const MAX_RAW_BYTES    = Math.floor(MAX_BASE64_BYTES * 3 / 4); // ~3.75 MB raw
+
+async function compressForClaude(buffer) {
+  if (buffer.length <= MAX_RAW_BYTES) return { buffer, mediaType: 'image/jpeg' };
+  let quality = 85;
+  let out = buffer;
+  while (out.length > MAX_RAW_BYTES && quality >= 40) {
+    out = await sharp(buffer)
+      .resize(2048, 2048, { fit: 'inside', withoutEnlargement: true })
+      .jpeg({ quality })
+      .toBuffer();
+    quality -= 15;
+  }
+  return { buffer: out, mediaType: 'image/jpeg' };
+}
+
 // ─── Main analysis endpoint ───────────────────────────────────────────────────
 app.post('/analyze', upload.array('menu', 10), async (req, res) => {
   if (!req.files || !req.files.length) {
@@ -50,9 +69,10 @@ app.post('/analyze', upload.array('menu', 10), async (req, res) => {
 
     // ── Step 1: Extract drinks from each page ─────────────────────────────────
     for (let pageIdx = 0; pageIdx < req.files.length; pageIdx++) {
-      const file           = req.files[pageIdx];
-      const imageBase64    = file.buffer.toString('base64');
-      const imageMediaType = file.mimetype;
+      const file                          = req.files[pageIdx];
+      const { buffer: imgBuf, mediaType } = await compressForClaude(file.buffer);
+      const imageBase64                   = imgBuf.toString('base64');
+      const imageMediaType                = mediaType;
       const pageLabel      = req.files.length > 1 ? ` (page ${pageIdx + 1} of ${req.files.length})` : '';
 
       send('status', { message: `Reading menu${pageLabel}...` });
