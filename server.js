@@ -69,13 +69,19 @@ app.post('/analyze', upload.array('menu', 10), async (req, res) => {
 
     // ── Step 1: Extract drinks from each page ─────────────────────────────────
     for (let pageIdx = 0; pageIdx < req.files.length; pageIdx++) {
-      const file                          = req.files[pageIdx];
-      const { buffer: imgBuf, mediaType } = await compressForClaude(file.buffer);
-      const imageBase64                   = imgBuf.toString('base64');
-      const imageMediaType                = mediaType;
-      const pageLabel      = req.files.length > 1 ? ` (page ${pageIdx + 1} of ${req.files.length})` : '';
-
+      const file = req.files[pageIdx];
+      const pageLabel = req.files.length > 1 ? ` (page ${pageIdx + 1} of ${req.files.length})` : '';
       send('status', { message: `Reading menu${pageLabel}...` });
+
+      let imgBuf = file.buffer, imageMediaType = file.mimetype;
+      try {
+        const compressed = await compressForClaude(file.buffer);
+        imgBuf = compressed.buffer;
+        imageMediaType = compressed.mediaType;
+      } catch (compressErr) {
+        console.error('Image compression failed, using original:', compressErr.message);
+      }
+      const imageBase64 = imgBuf.toString('base64');
 
       const extractionResponse = await client.messages.create({
         model: 'claude-haiku-4-5-20251001',
